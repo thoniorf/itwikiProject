@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -10,6 +12,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
@@ -24,18 +27,18 @@ public class Prove extends Configured implements Tool {
 
 	@Override
 	public int run(String[] arg0) throws Exception {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 	
 	
-	public static class XMLMapper extends Mapper<LongWritable, Text, Text, Text> {
+	public static class XMLCategoryRebuiltMapper extends Mapper<LongWritable, Text, Text, Text> {
+		
+		private Pattern pattern = Pattern.compile("\\[Categoria:(.*?)\\]");
+		private Matcher matcher;
 		
 		@Override
 		protected void map(LongWritable key, Text value, Context context)
 				throws IOException, InterruptedException {
-			// TODO Auto-generated method stub
-			super.map(key, value, context);
 			
 			SAXBuilder saxBuilder = new SAXBuilder();
 			Reader reader = new StringReader(value.toString());
@@ -44,19 +47,44 @@ public class Prove extends Configured implements Tool {
 				Document document = saxBuilder.build(reader);
 				
 				Element root = document.getRootElement();
+				Element title = root.getChild("title");
+				String pageTitle = title.getTextTrim();
+				String textContent = root.getChild("revision").getChild("text").getText();
 				
-				String author = root.getChild("author").getText();
+				matcher = pattern.matcher(textContent);
 				
-				System.out.println(author);
-				
-				
+				while(matcher.find()) {
+					context.write(new Text(pageTitle), new Text(matcher.group(1)));
+				}
 			} catch (JDOMException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
 		}
 	}
+	
+	
+	
+	
+	static class XMLCategoryRebuiltReducer extends Reducer<Text, Text, Text, Text> {
+		
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			context.write(new Text("Page Title"), new Text("Category Title"));
+		}
+		
+		@Override
+		protected void reduce(Text key, Iterable<Text> values, Context context)
+				throws IOException, InterruptedException {
+			
+			for(Text value : values)
+				context.write(new Text(key), new Text(value));
+			
+		}
+	}
+	
+	
+	
 	
 	
 	/**
@@ -81,33 +109,46 @@ public class Prove extends Configured implements Tool {
 	public static void runJob(String input, String output ) throws IOException, ClassNotFoundException, InterruptedException {
 	
 		Configuration conf = new Configuration();
-	
 		conf.set("xmlinput.start", "<page>");
 		conf.set("xmlinput.end", "</page>");
 		conf.set("io.serializations",
 				"org.apache.hadoop.io.serializer.JavaSerialization,org.apache.hadoop.io.serializer.WritableSerialization");
-	
-		Job job = new Job(conf, "jobName");
-	
-	
-		FileInputFormat.setInputPaths(job, input);
-		job.setJarByClass(Prove.class);
-		job.setMapperClass(XMLMapper.class);
-		job.setNumReduceTasks(0);
-		job.setInputFormatClass(XmlInputFormat.class);
-		job.setOutputKeyClass(Text.class);
-		job.setOutputValueClass(Text.class);
 		
-		Path outPath = new Path(output);
-		FileOutputFormat.setOutputPath(job, outPath);
-		// se esiste il path di out lo elimina che bello!
-		FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
-		if (dfs.exists(outPath)) {
-			dfs.delete(outPath, true);
-		}
+		Job job = configJob("CategoryRebuiltJob", conf, input, output);
 	
 		job.waitForCompletion(true);
 
+	}
+	
+	private static Job configJob(String title, Configuration conf, String input, String output) throws IOException {
+		Job job = Job.getInstance(conf, title);
+		
+		job.setJarByClass(Prove.class);
+		
+		job.setMapperClass(XMLCategoryRebuiltMapper.class);
+		job.setReducerClass(XMLCategoryRebuiltReducer.class);
+		
+		job.setInputFormatClass(XmlInputFormat.class);
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(Text.class);
+		
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+		
+//		job.setSortComparatorClass(TimeComparator.class);
+		
+		String inputFile = input;
+		FileInputFormat.setInputPaths(job, new Path(inputFile));
+		
+		Path outPath = new Path(output);
+		FileOutputFormat.setOutputPath(job, outPath);
+		
+		// if the output folder already exists, delete it so that hadoop don't broke the balls
+		FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
+		if (dfs.exists(outPath))
+			dfs.delete(outPath, true);
+		
+		return job;
 	}
 
 }
