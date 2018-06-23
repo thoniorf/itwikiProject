@@ -54,12 +54,22 @@ public class Prove extends Configured implements Tool {
 				matcher = pattern.matcher(textContent);
 				
 				while(matcher.find()) {
-					context.write(new Text(pageTitle), new Text(matcher.group(1)));
+					String category = cleanString(matcher.group(1));
+					context.write(new Text(pageTitle), new Text(category));
 				}
 			} catch (JDOMException e) {
 				e.printStackTrace();
 			}
 			
+		}
+		
+		
+		private String cleanString(String string) {
+			int index = string.indexOf('|');
+			if(index != -1)
+				return string.substring(0, index);
+			else
+				return string;
 		}
 	}
 	
