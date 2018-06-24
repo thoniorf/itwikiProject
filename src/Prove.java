@@ -5,7 +5,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -16,19 +15,12 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.apache.hadoop.util.Tool;
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.JDOMException;
-import org.jdom2.input.SAXBuilder;
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.input.SAXBuilder;
 
-public class Prove extends Configured implements Tool {
+public class Prove {
 
-
-	@Override
-	public int run(String[] arg0) throws Exception {
-		return 0;
-	}
 	
 	
 	public static class XMLCategoryRebuiltMapper extends Mapper<LongWritable, Text, Text, Text> {
@@ -57,7 +49,7 @@ public class Prove extends Configured implements Tool {
 					String category = cleanString(matcher.group(1));
 					context.write(new Text(pageTitle), new Text(category));
 				}
-			} catch (JDOMException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 			
@@ -76,7 +68,7 @@ public class Prove extends Configured implements Tool {
 	
 	
 	
-	static class XMLCategoryRebuiltReducer extends Reducer<Text, Text, Text, Text> {
+	public static class XMLCategoryRebuiltReducer extends Reducer<Text, Text, Text, Text> {
 		
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
@@ -117,7 +109,6 @@ public class Prove extends Configured implements Tool {
 
 
 	public static void runJob(String input, String output ) throws IOException, ClassNotFoundException, InterruptedException {
-	
 		Configuration conf = new Configuration();
 		conf.set("xmlinput.start", "<page>");
 		conf.set("xmlinput.end", "</page>");
@@ -134,6 +125,7 @@ public class Prove extends Configured implements Tool {
 		Job job = Job.getInstance(conf, title);
 		
 		job.setJarByClass(Prove.class);
+		job.setJar("CategoryRebuiltMapReduce.jar");
 		
 		job.setMapperClass(XMLCategoryRebuiltMapper.class);
 		job.setReducerClass(XMLCategoryRebuiltReducer.class);
