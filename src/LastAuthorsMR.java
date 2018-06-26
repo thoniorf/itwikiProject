@@ -5,6 +5,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -14,9 +15,9 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.input.SAXBuilder;
 
 public class LastAuthorsMR
 {
@@ -41,23 +42,26 @@ public class LastAuthorsMR
 				Element root = document.getRootElement();
 
 				Element id = root.getChild("id");
-				String pageId = id.getTextTrim();
+				String pageId = id.getText();
 
 				Element title = root.getChild("title");
-				String pageTitle = title.getTextTrim();
+				String pageTitle = title.getText();
 
 				Element author = root.getChild("revision").getChild("contributor");
 
-				String authorId = "";
-				String authorName = "";
-				String authorIp = "";
-
-				if (author.getChildren().contains("id") && author.getChildren().contains("username"))
-				{
-					authorId = author.getChild("id").getTextTrim();
-					authorName = author.getChild("username").getTextTrim();
-				} else if (author.getChildren().contains("ip"))
-					authorIp = author.getChild("ip").getTextTrim();
+				String authorId = "-";
+				String authorName = "-";
+				String authorIp = "-";
+				
+				Element idElement = author.getChild("id");
+				Element usernameElement = author.getChild("username");
+				Element ipElement = author.getChild("ip");
+				
+				if (idElement != null && usernameElement != null){
+					authorId = idElement.getText();
+					authorName = usernameElement.getText();
+				} else if (ipElement != null)
+					authorIp = ipElement.getText();
 
 				String textContent = root.getChild("revision").getChild("text").getText();
 
@@ -102,35 +106,59 @@ public class LastAuthorsMR
 				context.write(new Text(key), new Text(pg.toString()));
 		}
 	}
+	
+	/**
+	 * @param args
+	 *            the command line arguments
+	 * @throws Exception
+	 */
+	public static void main(String[] args) throws Exception {
+		try {
+			String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
+			runJob(myArgs[0], myArgs[1]);
 
-	public static void main(String[] args)
-	{
-		
-		Configuration conf = new Configuration();
-		try
-		{
-			String [] myArgs = new GenericOptionsParser(args).getRemainingArgs();
-			Job jobLastAuthors = Job.getInstance(conf, "la");
-			
-			jobLastAuthors.setInputFormatClass(XmlInputFormat.class);
-			
-			jobLastAuthors.setMapOutputKeyClass(Text.class);
-			jobLastAuthors.setMapOutputValueClass(PageWritable.class);
-		
-			jobLastAuthors.setOutputKeyClass(Text.class);
-			jobLastAuthors.setOutputValueClass(Text.class);
-
-			FileInputFormat.setInputPaths(jobLastAuthors, new Path(myArgs[0]));
-			FileOutputFormat.setOutputPath(jobLastAuthors, new Path(myArgs[1]));
-			
-			jobLastAuthors.waitForCompletion(true);
-			
-			System.exit(0);
-			
-		} catch (IOException | ClassNotFoundException | InterruptedException e)
-		{
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public static void runJob(String input, String output)
+			throws IOException, ClassNotFoundException, InterruptedException {
+		Configuration conf = new Configuration();
+		conf.set("xmlinput.start", "<page>");
+		conf.set("xmlinput.end", "</page>");
+		conf.set("io.serializations",
+				"org.apache.hadoop.io.serializer.JavaSerialization,org.apache.hadoop.io.serializer.WritableSerialization");
+
+		Job jobLastAuthors = Job.getInstance(conf, "la");
+		
+		jobLastAuthors.setInputFormatClass(XmlInputFormat.class);
+		
+		jobLastAuthors.setMapperClass(XMLLastAuthorsRebuiltMapper.class);
+		jobLastAuthors.setReducerClass(XMLLastAuthorRebuiltReducer.class);
+		
+		jobLastAuthors.setMapOutputKeyClass(Text.class);
+		jobLastAuthors.setMapOutputValueClass(PageWritable.class);
+	
+		jobLastAuthors.setOutputKeyClass(Text.class);
+		jobLastAuthors.setOutputValueClass(Text.class);
+
+		FileInputFormat.setInputPaths(jobLastAuthors, new Path(input));
+		
+		Path outPath = new Path(output);
+		FileOutputFormat.setOutputPath(jobLastAuthors, outPath);
+
+		// if the output folder already exists, delete it so that hadoop don't broke the
+		// balls
+		FileSystem dfs = FileSystem.get(outPath.toUri(), conf);
+		if (dfs.exists(outPath))
+			dfs.delete(outPath, true);
+		
+		jobLastAuthors.waitForCompletion(true);
 		
 		
 	}

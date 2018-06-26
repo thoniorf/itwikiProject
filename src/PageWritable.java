@@ -34,11 +34,11 @@ public class PageWritable implements Writable
 	@Override
 	public void readFields(DataInput dataInput) throws IOException
 	{
-		title = dataInput.readLine();
-		id = dataInput.readLine();
-		category = dataInput.readLine();
-		authorName = dataInput.readLine();
-		authorId = dataInput.readLine();
+		title = dataInput.readUTF();
+		id = dataInput.readUTF();
+		category = dataInput.readUTF();
+		authorName = dataInput.readUTF();
+		authorId = dataInput.readUTF();
 	}
 
 	public String getAuthorIP()
@@ -113,14 +113,14 @@ public class PageWritable implements Writable
 	
 	public boolean valueIsNotGiven (String value)
 	{
-		return value.equals("");
+		return value.equals("-");
 	}
 
 	@Override
 	public String toString()
 	{
 		StringJoiner sj = new StringJoiner("\t");
-		sj.add(id).add(title).add(category).add(authorId).add(authorName).add(authorIP);
+		sj.add(title).add(category).add(authorId).add(authorName).add(authorIP);
 		return sj.toString();
 	}
 	

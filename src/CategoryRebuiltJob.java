@@ -79,24 +79,24 @@ public class CategoryRebuiltJob {
 		}
 	}
 
-	/**
-	 * @param args
-	 *            the command line arguments
-	 * @throws Exception
-	 */
-	public static void main(String[] args) throws Exception {
-		try {
-			String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
-			runJob(myArgs[0], myArgs[1]);
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
+//	/**
+//	 * @param args
+//	 *            the command line arguments
+//	 * @throws Exception
+//	 */
+//	public static void main(String[] args) throws Exception {
+//		try {
+//			String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
+//			runJob(myArgs[0], myArgs[1]);
+//
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		} catch (ClassNotFoundException e) {
+//			e.printStackTrace();
+//		} catch (InterruptedException e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 	public static void runJob(String input, String output)
 			throws IOException, ClassNotFoundException, InterruptedException {
@@ -115,7 +115,7 @@ public class CategoryRebuiltJob {
 	private static Job configJob(String title, Configuration conf, String input, String output) throws IOException {
 		Job job = Job.getInstance(conf, title);
 
-		job.setJarByClass(CategoryRebuiltJob.class);
+//		job.setJarByClass(CategoryRebuiltJob.class);
 
 		job.setMapperClass(XMLCategoryRebuiltMapper.class);
 		job.setReducerClass(XMLCategoryRebuiltReducer.class);
