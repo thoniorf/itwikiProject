@@ -19,7 +19,7 @@ import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
 
-public class Prove {
+public class CategoryRebuiltJob {
 
 	
 	
@@ -124,7 +124,7 @@ public class Prove {
 	private static Job configJob(String title, Configuration conf, String input, String output) throws IOException {
 		Job job = Job.getInstance(conf, title);
 		
-		job.setJarByClass(Prove.class);
+		job.setJarByClass(CategoryRebuiltJob.class);
 		job.setJar("CategoryRebuiltMapReduce.jar");
 		
 		job.setMapperClass(XMLCategoryRebuiltMapper.class);
