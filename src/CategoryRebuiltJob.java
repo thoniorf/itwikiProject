@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,7 +16,6 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.util.GenericOptionsParser;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -41,11 +42,21 @@ public class CategoryRebuiltJob {
 				String pageTitle = title.getTextTrim();
 				String textContent = root.getChild("revision").getChild("text").getText();
 
-				matcher = pattern.matcher(textContent);
+				List<String> categories = new ArrayList<>();
+				// categories stores the matched page's categories, if any, write the page with
+				// a '-'placeholder.
 
+				matcher = pattern.matcher(textContent);
 				while (matcher.find()) {
 					String category = cleanString(matcher.group(1));
-					context.write(new Text(pageTitle), new Text(category));
+					categories.add(category);
+				}
+
+				if (categories.isEmpty())
+					categories.add("-");
+
+				for (String cat : categories) {
+					context.write(new Text(pageTitle), new Text(cat));
 				}
 			} catch (JDOMException e) {
 				e.printStackTrace();
@@ -79,24 +90,24 @@ public class CategoryRebuiltJob {
 		}
 	}
 
-//	/**
-//	 * @param args
-//	 *            the command line arguments
-//	 * @throws Exception
-//	 */
-//	public static void main(String[] args) throws Exception {
-//		try {
-//			String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
-//			runJob(myArgs[0], myArgs[1]);
-//
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//		} catch (ClassNotFoundException e) {
-//			e.printStackTrace();
-//		} catch (InterruptedException e) {
-//			e.printStackTrace();
-//		}
-//	}
+	// /**
+	// * @param args
+	// * the command line arguments
+	// * @throws Exception
+	// */
+	// public static void main(String[] args) throws Exception {
+	// try {
+	// String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
+	// runJob(myArgs[0], myArgs[1]);
+	//
+	// } catch (IOException e) {
+	// e.printStackTrace();
+	// } catch (ClassNotFoundException e) {
+	// e.printStackTrace();
+	// } catch (InterruptedException e) {
+	// e.printStackTrace();
+	// }
+	// }
 
 	public static void runJob(String input, String output)
 			throws IOException, ClassNotFoundException, InterruptedException {
@@ -115,7 +126,7 @@ public class CategoryRebuiltJob {
 	private static Job configJob(String title, Configuration conf, String input, String output) throws IOException {
 		Job job = Job.getInstance(conf, title);
 
-//		job.setJarByClass(CategoryRebuiltJob.class);
+		// job.setJarByClass(CategoryRebuiltJob.class);
 
 		job.setMapperClass(XMLCategoryRebuiltMapper.class);
 		job.setReducerClass(XMLCategoryRebuiltReducer.class);
