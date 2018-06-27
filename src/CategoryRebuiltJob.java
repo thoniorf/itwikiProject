@@ -80,7 +80,7 @@ public class CategoryRebuiltJob {
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
-			context.write(new Text("Page Id"), new Text("Page Title" + "\t" + "Category Title"));
+			context.write(new Text("PageId"), new Text("PageTitle" + "\t" + "CategoryTitle"));
 		}
 
 		@Override
