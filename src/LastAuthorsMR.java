@@ -23,7 +23,7 @@ import org.jdom2.input.SAXBuilder;
 
 public class LastAuthorsMR {
 
-	public static class XMLLastAuthorsRebuiltMapper extends Mapper<LongWritable, Text, Text, PageWritable> {
+	public static class XMLLastAuthorsRebuiltMapper extends Mapper<LongWritable, Text, LongWritable, PageWritable> {
 
 		private Pattern pattern = Pattern.compile("\\[Categoria:(.*?)\\]");
 		private Matcher matcher;
@@ -47,9 +47,9 @@ public class LastAuthorsMR {
 
 				Element author = root.getChild("revision").getChild("contributor");
 
-				String authorId = "-";
-				String authorName = "-";
-				String authorIp = "-";
+				String authorId = PageWritable.UNDEFINED_STRING;
+				String authorName = PageWritable.UNDEFINED_STRING;
+				String authorIp = PageWritable.UNDEFINED_STRING;
 
 				Element idElement = author.getChild("id");
 				Element usernameElement = author.getChild("username");
@@ -77,10 +77,10 @@ public class LastAuthorsMR {
 				}
 
 				if (categories.isEmpty())
-					categories.add("-");
+					categories.add(PageWritable.UNDEFINED_STRING);
 
 				for (String cat : categories) {
-					context.write(new Text(pageId),
+					context.write(new LongWritable(Long.valueOf(pageId)),
 							new PageWritable(pageTitle, pageId, cat, authorName, authorId, authorIp));
 				}
 			} catch (Exception e) {
@@ -98,20 +98,19 @@ public class LastAuthorsMR {
 		}
 	}
 
-	public static class XMLLastAuthorRebuiltReducer extends Reducer<Text, PageWritable, Text, Text> {
+	public static class XMLLastAuthorRebuiltReducer extends Reducer<LongWritable, PageWritable, Text, Text> {
 
 		@Override
-		protected void setup(Reducer<Text, PageWritable, Text, Text>.Context context)
+		protected void setup(Reducer<LongWritable, PageWritable, Text, Text>.Context context)
 				throws IOException, InterruptedException {
 			context.write(new Text("Page ID"), new Text("PageTitle" + "\t" + "CategoryTitle" + "\t" + "AuthorID"
 					+ "\t" + "AuthorName" + "\t" + "AuthorIP" + "\t"));
 		}
 
 		@Override
-		protected void reduce(Text key, Iterable<PageWritable> value,
-				Reducer<Text, PageWritable, Text, Text>.Context context) throws IOException, InterruptedException {
+		protected void reduce(LongWritable key, Iterable<PageWritable> value, Context context) throws IOException, InterruptedException {
 			for (PageWritable pg : value)
-				context.write(new Text(key), new Text(pg.toString()));
+				context.write(new Text(key.toString()), new Text(pg.toString()));
 		}
 	}
 
@@ -149,7 +148,7 @@ public class LastAuthorsMR {
 		jobLastAuthors.setMapperClass(XMLLastAuthorsRebuiltMapper.class);
 		jobLastAuthors.setReducerClass(XMLLastAuthorRebuiltReducer.class);
 
-		jobLastAuthors.setMapOutputKeyClass(Text.class);
+		jobLastAuthors.setMapOutputKeyClass(LongWritable.class);
 		jobLastAuthors.setMapOutputValueClass(PageWritable.class);
 
 		jobLastAuthors.setOutputKeyClass(Text.class);

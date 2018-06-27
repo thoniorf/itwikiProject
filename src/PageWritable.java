@@ -6,6 +6,8 @@ import java.util.StringJoiner;
 import org.apache.hadoop.io.Writable;
 
 public class PageWritable implements Writable {
+	
+	public static final String UNDEFINED_STRING = "-";
 
 	private String title;
 	private String id;

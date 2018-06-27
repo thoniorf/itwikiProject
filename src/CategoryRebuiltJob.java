@@ -16,6 +16,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -23,7 +24,7 @@ import org.jdom2.input.SAXBuilder;
 
 public class CategoryRebuiltJob {
 
-	public static class XMLCategoryRebuiltMapper extends Mapper<LongWritable, Text, Text, Text> {
+	public static class XMLCategoryRebuiltMapper extends Mapper<LongWritable, Text, LongWritable, PageWritable> {
 
 		private Pattern pattern = Pattern.compile("\\[Categoria:(.*?)\\]");
 		private Matcher matcher;
@@ -41,6 +42,7 @@ public class CategoryRebuiltJob {
 				Element title = root.getChild("title");
 				String pageTitle = title.getTextTrim();
 				String textContent = root.getChild("revision").getChild("text").getText();
+				String pageId = root.getChild("id").getText();
 
 				List<String> categories = new ArrayList<>();
 				// categories stores the matched page's categories, if any, write the page with
@@ -56,7 +58,8 @@ public class CategoryRebuiltJob {
 					categories.add("-");
 
 				for (String cat : categories) {
-					context.write(new Text(pageTitle), new Text(cat));
+					context.write(new LongWritable(Long.valueOf(pageId)), 
+							new PageWritable(pageTitle, pageId, cat, PageWritable.UNDEFINED_STRING, PageWritable.UNDEFINED_STRING, PageWritable.UNDEFINED_STRING));
 				}
 			} catch (JDOMException e) {
 				e.printStackTrace();
@@ -73,41 +76,41 @@ public class CategoryRebuiltJob {
 		}
 	}
 
-	public static class XMLCategoryRebuiltReducer extends Reducer<Text, Text, Text, Text> {
+	public static class XMLCategoryRebuiltReducer extends Reducer<LongWritable, PageWritable, Text, Text> {
 
 		@Override
 		protected void setup(Context context) throws IOException, InterruptedException {
-			context.write(new Text("PageTitle"), new Text("CategoryTitle"));
+			context.write(new Text("Page Id"), new Text("Page Title" + "\t" + "Category Title"));
 		}
 
 		@Override
-		protected void reduce(Text key, Iterable<Text> values, Context context)
+		protected void reduce(LongWritable pageID, Iterable<PageWritable> values, Context context)
 				throws IOException, InterruptedException {
 
-			for (Text value : values)
-				context.write(new Text(key), new Text(value));
+			for (PageWritable value : values)
+				context.write(new Text(pageID.toString()), new Text(value.getTitle() + "\t" + value.getCategory()));
 
 		}
 	}
 
-	// /**
-	// * @param args
-	// * the command line arguments
-	// * @throws Exception
-	// */
-	// public static void main(String[] args) throws Exception {
-	// try {
-	// String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
-	// runJob(myArgs[0], myArgs[1]);
-	//
-	// } catch (IOException e) {
-	// e.printStackTrace();
-	// } catch (ClassNotFoundException e) {
-	// e.printStackTrace();
-	// } catch (InterruptedException e) {
-	// e.printStackTrace();
-	// }
-	// }
+	 /**
+	 * @param args
+	 * the command line arguments
+	 * @throws Exception
+	 */
+	 public static void main(String[] args) throws Exception {
+		try {
+			String[] myArgs = new GenericOptionsParser(args).getRemainingArgs();
+			runJob(myArgs[0], myArgs[1]);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	 }
 
 	public static void runJob(String input, String output)
 			throws IOException, ClassNotFoundException, InterruptedException {
@@ -133,8 +136,8 @@ public class CategoryRebuiltJob {
 
 		job.setInputFormatClass(XmlInputFormat.class);
 
-		job.setMapOutputKeyClass(Text.class);
-		job.setMapOutputValueClass(Text.class);
+		job.setMapOutputKeyClass(LongWritable.class);
+		job.setMapOutputValueClass(PageWritable.class);
 
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
