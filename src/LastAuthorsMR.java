@@ -103,7 +103,7 @@ public class LastAuthorsMR {
 		@Override
 		protected void setup(Reducer<LongWritable, PageWritable, Text, Text>.Context context)
 				throws IOException, InterruptedException {
-			context.write(new Text("Page ID"), new Text("PageTitle" + "\t" + "CategoryTitle" + "\t" + "AuthorID"
+			context.write(new Text("PageID"), new Text("PageTitle" + "\t" + "CategoryTitle" + "\t" + "AuthorID"
 					+ "\t" + "AuthorName" + "\t" + "AuthorIP" + "\t"));
 		}
 
