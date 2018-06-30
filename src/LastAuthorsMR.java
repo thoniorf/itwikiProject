@@ -1,10 +1,16 @@
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
+import java.io.InputStream;
+//import java.io.Reader;
+//import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -17,9 +23,15 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.input.SAXBuilder;
+//import org.jdom2.Document;
+//import org.jdom2.Element;
+//import org.jdom2.input.SAXBuilder;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
+
 
 public class LastAuthorsMR {
 
@@ -30,41 +42,78 @@ public class LastAuthorsMR {
 
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-
-			SAXBuilder saxBuilder = new SAXBuilder();
-			Reader reader = new StringReader(value.toString());
-
+			
 			try {
-				Document document = saxBuilder.build(reader);
+//				SAXBuilder saxBuilder = new SAXBuilder();
+//				Reader reader = new StringReader(value.toString());
+//				Document document = saxBuilder.build(reader);
+//
+//				Element root = document.getRootElement();
 
-				Element root = document.getRootElement();
+//				Element id = root.getChild("id");
+//				String pageId = id.getText();
+//
+//				Element title = root.getChild("title");
+//				String pageTitle = title.getText();
+//
+//				Element author = root.getChild("revision").getChild("contributor");
+//
+//				String authorId = PageWritable.UNDEFINED_STRING;
+//				String authorName = PageWritable.UNDEFINED_STRING;
+//				String authorIp = PageWritable.UNDEFINED_STRING;
+//
+//				Element idElement = author.getChild("id");
+//				Element usernameElement = author.getChild("username");
+//				Element ipElement = author.getChild("ip");
+//
+//				if (idElement != null && usernameElement != null) {
+//					authorId = idElement.getText();
+//					authorName = usernameElement.getText();
+//				} else if (ipElement != null) {
+//					authorIp = ipElement.getText();
+//
+//				}
+//
+//				String textContent = root.getChild("revision").getChild("text").getText();
 
-				Element id = root.getChild("id");
-				String pageId = id.getText();
+				
+				
+				InputStream is = new ByteArrayInputStream(value.toString().getBytes("UTF-8"));
 
-				Element title = root.getChild("title");
-				String pageTitle = title.getText();
+				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 
-				Element author = root.getChild("revision").getChild("contributor");
-
+				DocumentBuilder documentBuilder = dbFactory.newDocumentBuilder();
+				Document document = documentBuilder.parse(is);
+				document.getDocumentElement().normalize();
+				
+				Node root = document.getElementsByTagName("page").item(0);
+				
+				String pageId = PageWritable.UNDEFINED_STRING;
+				String pageTitle = PageWritable.UNDEFINED_STRING;
 				String authorId = PageWritable.UNDEFINED_STRING;
 				String authorName = PageWritable.UNDEFINED_STRING;
 				String authorIp = PageWritable.UNDEFINED_STRING;
-
-				Element idElement = author.getChild("id");
-				Element usernameElement = author.getChild("username");
-				Element ipElement = author.getChild("ip");
-
-				if (idElement != null && usernameElement != null) {
-					authorId = idElement.getText();
-					authorName = usernameElement.getText();
-				} else if (ipElement != null) {
-					authorIp = ipElement.getText();
-
+				String textContent = PageWritable.UNDEFINED_STRING;
+				
+				if (root.getNodeType() == Node.ELEMENT_NODE) {
+					Element element = (Element) root;
+					pageId = element.getElementsByTagName("id").item(0).getTextContent();
+					pageTitle = element.getElementsByTagName("title").item(0).getTextContent();
+					
+					Element contributor = (Element) element.getElementsByTagName("revision").item(0);
+					NodeList ipListNode = contributor.getElementsByTagName("ip");
+					NodeList usernameNodeList =  contributor.getElementsByTagName("username");
+					NodeList authorIdNodeList = contributor.getElementsByTagName("id");
+					if(ipListNode.getLength() > 0) {
+						authorIp = ipListNode.item(0).getTextContent();
+					} else if(usernameNodeList.getLength() > 0 && authorIdNodeList.getLength() > 0) {
+						authorName = usernameNodeList.item(0).getTextContent();
+						authorId = authorIdNodeList.item(0).getTextContent();
+					}
+					
+					textContent = element.getElementsByTagName("text").item(0).getTextContent();
 				}
-
-				String textContent = root.getChild("revision").getChild("text").getText();
-
+				
 				matcher = pattern.matcher(textContent);
 
 				List<String> categories = new ArrayList<>();
@@ -83,7 +132,7 @@ public class LastAuthorsMR {
 					context.write(new LongWritable(Long.valueOf(pageId)),
 							new PageWritable(pageTitle, pageId, cat, authorName, authorId, authorIp));
 				}
-			} catch (Exception e) {
+			} catch (SAXException | ParserConfigurationException e) {
 				e.printStackTrace();
 			}
 

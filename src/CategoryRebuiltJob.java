@@ -1,10 +1,16 @@
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
+import java.io.InputStream;
+//import java.io.Reader;
+//import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -17,10 +23,14 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.JDOMException;
-import org.jdom2.input.SAXBuilder;
+//import org.jdom2.Document;
+//import org.jdom2.Element;
+//import org.jdom2.JDOMException;
+//import org.jdom2.input.SAXBuilder;
+import org.w3c.dom.Node;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
 
 public class CategoryRebuiltJob {
 
@@ -32,17 +42,39 @@ public class CategoryRebuiltJob {
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 
-			SAXBuilder saxBuilder = new SAXBuilder();
-			Reader reader = new StringReader(value.toString());
 
 			try {
-				Document document = saxBuilder.build(reader);
+//				SAXBuilder saxBuilder = new SAXBuilder();
+//				Reader reader = new StringReader(value.toString());
+//				
+//				Document document = saxBuilder.build(reader);
+//
+//				Element root = document.getRootElement();
+//				Element title = root.getChild("title");
+//				String pageTitle = title.getTextTrim();
+//				String textContent = root.getChild("revision").getChild("text").getText();
+//				String pageId = root.getChild("id").getText();
+				
+				InputStream is = new ByteArrayInputStream(value.toString().getBytes("UTF-8"));
 
-				Element root = document.getRootElement();
-				Element title = root.getChild("title");
-				String pageTitle = title.getTextTrim();
-				String textContent = root.getChild("revision").getChild("text").getText();
-				String pageId = root.getChild("id").getText();
+				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+
+				DocumentBuilder documentBuilder = dbFactory.newDocumentBuilder();
+				Document document = documentBuilder.parse(is);
+				document.getDocumentElement().normalize();
+
+				String textContent = "";
+				String pageTitle = "";
+				String pageId = "";
+
+				Node root = document.getElementsByTagName("page").item(0);
+
+				if (root.getNodeType() == Node.ELEMENT_NODE) {
+					Element element = (Element) root;
+					pageId = element.getElementsByTagName("id").item(0).getTextContent();
+					textContent = element.getElementsByTagName("text").item(0).getTextContent();
+					pageTitle = element.getElementsByTagName("title").item(0).getTextContent();
+				}
 
 				List<String> categories = new ArrayList<>();
 				// categories stores the matched page's categories, if any, write the page with
@@ -61,7 +93,7 @@ public class CategoryRebuiltJob {
 					context.write(new LongWritable(Long.valueOf(pageId)), 
 							new PageWritable(pageTitle, pageId, cat, PageWritable.UNDEFINED_STRING, PageWritable.UNDEFINED_STRING, PageWritable.UNDEFINED_STRING));
 				}
-			} catch (JDOMException e) {
+			} catch (ParserConfigurationException | SAXException e) {
 				e.printStackTrace();
 			}
 
@@ -129,7 +161,7 @@ public class CategoryRebuiltJob {
 	private static Job configJob(String title, Configuration conf, String input, String output) throws IOException {
 		Job job = Job.getInstance(conf, title);
 
-		// job.setJarByClass(CategoryRebuiltJob.class);
+		 job.setJarByClass(CategoryRebuiltJob.class);
 
 		job.setMapperClass(XMLCategoryRebuiltMapper.class);
 		job.setReducerClass(XMLCategoryRebuiltReducer.class);
