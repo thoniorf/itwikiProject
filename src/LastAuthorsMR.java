@@ -100,7 +100,7 @@ public class LastAuthorsMR {
 					pageId = element.getElementsByTagName("id").item(0).getTextContent();
 					pageTitle = element.getElementsByTagName("title").item(0).getTextContent();
 					
-					Element contributor = (Element) element.getElementsByTagName("revision").item(0);
+					Element contributor = (Element) element.getElementsByTagName("contributor").item(0);
 					NodeList ipListNode = contributor.getElementsByTagName("ip");
 					NodeList usernameNodeList =  contributor.getElementsByTagName("username");
 					NodeList authorIdNodeList = contributor.getElementsByTagName("id");
@@ -192,6 +192,8 @@ public class LastAuthorsMR {
 
 		Job jobLastAuthors = Job.getInstance(conf, "la");
 
+		jobLastAuthors.setJarByClass(LastAuthorsMR.class);
+		
 		jobLastAuthors.setInputFormatClass(XmlInputFormat.class);
 
 		jobLastAuthors.setMapperClass(XMLLastAuthorsRebuiltMapper.class);
